@@ -1,0 +1,137 @@
+`timescale 1ns / 1ps
+
+module n_cycle_multiplier(
+    input clk,
+    input reset,
+    input [3:0] pulse_in,
+    output pulse_out
+    );
+    
+    wire copy_clk;
+    
+    pulse_stretch p1 (clk,reset,pulse_in,copy_clk);
+
+    assign pulse_out = copy_clk & clk;
+
+endmodule
+
+
+
+`timescale 1ns / 1ps
+module pulse_stretch
+(
+    input       clk,
+    input       reset,
+    input [3:0] pulse_in, //will be the start of the cycle and also have the info on how long pulse_out should be
+    output reg  pulse_out
+ );   
+
+reg [3:0] counter;
+reg active;
+wire start;
+
+assign start = (pulse_in != 4'b0);
+
+always @ (posedge clk or posedge reset)
+begin
+    if(reset)
+    begin
+        counter <= 4'b0;
+        pulse_out <= 1'b0;
+        active <= 1'b0; 
+    end
+    else 
+    begin
+        if (start && !active)
+        begin
+            counter <= pulse_in;
+            active <= 1'b1;
+            pulse_out <= 1'b1;
+        end
+        else if (active)
+        begin
+            if(counter>1)
+            begin
+                counter <= counter-1;
+                pulse_out <= 1'b1;
+                active <= 1'b1;
+            end
+            else
+            begin
+                counter <= 1'b0;
+                pulse_out <= 1'b0;
+                active <= 1'b0;
+            end
+        end
+        else
+            pulse_out <= 1'b0;
+        end
+    end    
+endmodule
+
+
+
+`timescale 1ns / 1ps
+
+module tb_pulse_stretch;
+
+    // DUT signals
+    reg       clk;
+    reg       reset;
+    reg [3:0] pulse_in;
+    wire      pulse_out;
+
+    // Instantiate DUT
+    pulse_stretch dut (
+        .clk(clk),
+        .reset(reset),
+        .pulse_in(pulse_in),
+        .pulse_out(pulse_out)
+    );
+
+    // Clock generation: 10 ns period
+    always #5 clk = ~clk;
+
+    initial begin
+        // Initialize
+        clk      = 0;
+        reset    = 1;
+        pulse_in = 4'b0;
+
+        // Apply reset
+        #20;
+        reset = 0;
+
+        // -------- Test 1: Single 1-cycle pulse --------
+        #10;
+        pulse_in = 4'b1;
+        #10;
+        pulse_in = 0;
+
+        // Wait enough time to observe N-cycle output
+        #40;
+
+        // -------- Test 2: Pulse during active (should be ignored) --------
+        pulse_in = 4'b1000;
+        #10;
+        pulse_in = 0;
+
+        #100;
+
+        // -------- Test 3: Another valid pulse --------
+        pulse_in = 4'b1001;
+        #10;
+        pulse_in = 0;
+        
+        #20;
+        pulse_in = 4'b1111;   // attempt retrigger while active
+        #10;
+        pulse_in = 0;
+
+        #200;
+
+        // Finish simulation
+        $finish;
+    end
+
+endmodule
