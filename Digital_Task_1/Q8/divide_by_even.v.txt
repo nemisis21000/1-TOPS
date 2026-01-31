@@ -1,0 +1,57 @@
+`timescale 1ns / 1ps
+module divide_by_even #(parameter even = 6)( 
+    input      in_clk,
+    input      rst,
+    output reg out_clk
+    );
+    
+    reg [4:0] count;
+    
+    always @(posedge in_clk)
+    begin
+        if(rst)
+        begin
+            count = even/2;
+            out_clk = 0;
+        end
+        else if (count == even/2)
+        begin
+            count = 1;
+            out_clk = ~out_clk;
+        end
+        else
+            count = count+1;
+    end
+            
+endmodule
+
+
+
+`timescale 1ns / 1ps
+module tb;
+
+reg in_clk,rst;
+wire out_clk;
+
+divide_by_even #(.even(6)) dut (in_clk,rst,out_clk);
+
+initial
+begin
+    in_clk = 0;
+    rst = 1;
+    #20
+    rst = 0;
+end
+always #15 in_clk = ~in_clk;
+
+initial
+begin
+    #400
+    rst = 1;
+    #10
+    rst = 0;
+    #500
+    $finish;
+end
+
+endmodule
