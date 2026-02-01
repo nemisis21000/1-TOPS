@@ -1,0 +1,116 @@
+`timescale 1ns / 1ps
+
+module rr_arbiter (  //priority rotating arbiter
+    input            clk,
+    input            rst,
+    input      [3:0] R,           // MSB has the most priority
+    output reg [3:0] grant        // one-hot grant
+);
+
+    reg [1:0] ptr;
+    reg [3:0] rotated_r;
+    
+    always @(*)
+    begin
+        case(ptr)
+        2'b00: rotated_r = {R[3],R[2],R[1],R[0]}; //3>3>1>0
+        2'b01: rotated_r = {R[2],R[1],R[0],R[3]}; //2>1>0>3
+        2'b10: rotated_r = {R[1],R[0],R[3],R[2]}; //1>0>3>2
+        2'b11: rotated_r = {R[0],R[3],R[2],R[1]}; //0>3>2>1
+        default: rotated_r = 4'b0;
+        endcase
+    end
+    
+    wire [1:0] next_ptr = (ptr + 2'b01); // The priority is rotated irrsepective of which request is granted
+    wire [3:0] rotated_g;
+    
+    assign rotated_g[3] =  rotated_r[3];                                        
+    assign rotated_g[2] = ~rotated_r[3] &  rotated_r[2];
+    assign rotated_g[1] = ~rotated_r[3] & ~rotated_r[2] &  rotated_r[1];
+    assign rotated_g[0] = ~rotated_r[3] & ~rotated_r[2] & ~rotated_r[1] &
+                           rotated_r[0];
+    
+    always @(*)
+    begin
+        case (ptr)
+        2'b00: grant = {rotated_g[3],rotated_g[2],rotated_g[1],rotated_g[0]};  // putting the rotating_g back to their corresponding
+        2'b01: grant = {rotated_g[0],rotated_g[3],rotated_g[2],rotated_g[1]};  // requests
+        2'b10: grant = {rotated_g[1],rotated_g[0],rotated_g[3],rotated_g[2]};
+        2'b11: grant = {rotated_g[2],rotated_g[1],rotated_g[0],rotated_g[3]};
+        default: grant = 4'b0;
+        endcase
+    end
+    
+    always @(posedge clk or posedge rst)
+    begin
+        if (rst)    
+            ptr <= 0;
+        else if (|grant) // if a request (any request) is granted the priority shifts
+            ptr <= next_ptr;
+    end
+endmodule
+
+
+
+`timescale 1ns / 1ps
+
+module tb_rr_arbiter;
+
+    reg        clk;
+    reg        rst;
+    reg  [3:0] R;
+    wire [3:0] grant;
+
+    wire [1:0]   ptr = dut.ptr;
+    wire [3:0]   rotated_r = dut.rotated_r;
+    wire [3:0]   rotated_g = dut.rotated_g;
+
+    // DUT instantiation
+    rr_arbiter dut (
+        .clk   (clk),
+        .rst   (rst),
+        .R     (R),
+        .grant (grant)
+    );
+
+    // Clock generation: 10 ns period
+    always #5 clk = ~clk;
+
+    initial begin
+        // ---------------- Initialization ----------------
+        clk = 0; rst = 1; R = 4'b0000;
+        #20; rst = 0; #10;
+
+        // ---------------- Test 1: Single request ----------------
+        R = 4'b0001;   #40;
+
+        // ---------------- Test 2: Two requests ----------------
+        R = 4'b0101;   #60;
+
+        // ---------------- Test 3: All requests - FULL ROTATION ---
+        R = 4'b1111;   
+        repeat(20) #10;  // Multiple full cycles
+
+        // ---------------- Test 4: Dynamic changes ----------------
+        R = 4'b1000; #20;  // Only R[3]
+        R = 4'b0010; #20;  // Only R[1]  
+        R = 4'b0110; #40;  // R[1]+R[2]
+
+        // ---------------- Test 5: Reset during operation ----------------
+        R = 4'b1111; repeat(3) #10;
+        rst = 1; #20; rst = 0; #10;
+        R = 4'b1111; #40;  // Should restart from state 000
+
+        // ---------------- Test 6: No requests (idle) ----------------
+        R = 4'b0000; #50;
+        // Should stay grant=0
+
+        // ---------------- Test 7: Corner case - requests deactivate ---
+        R = 4'b1111; #20;
+        R = 4'b1010; #40;  // R3,R1 only
+        R = 4'b0100; #30;  // R2 only
+
+        $finish;
+    end
+
+endmodule
