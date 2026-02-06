@@ -1,0 +1,55 @@
+`timescale 1ns / 1ps
+module fifo(
+    input            wrt_clk,
+    input            rd_clk,
+    input            rd_rst,
+    input            wrt_rst,
+    input      [7:0] data_in,
+    input            wrt_en,
+    input            rd_en,
+    output reg [7:0] data_out,
+    output           full,
+    output           empty
+    );
+    
+    reg [7:0] mem [0:7];
+    reg [3:0] wrt_ptr, rd_ptr;
+    
+    //first convert binary to gray      
+    wire [3:0] rd_ptr_gray;                  
+    b_to_g rd1(rd_ptr,rd_ptr_gray);  
+      
+    wire [3:0] wrt_ptr_gray;                  
+    b_to_g wrt1(wrt_ptr,wrt_ptr_gray);     
+    
+    assign empty = (rd_ptr_gray == wrt_ptr_gray);
+    assign full = (wrt_ptr_gray == {~rd_ptr_gray[3:2],rd_ptr_gray[1:0]});
+
+    //Updating data_out and updating read pointer      
+    always @(posedge rd_clk or posedge rd_rst)
+    begin
+        if(rd_rst)
+        begin
+            data_out <= 0;
+            rd_ptr   <= 0;
+        end
+        else if(rd_en && !empty)
+        begin
+            data_out <= mem[rd_ptr[2:0]];
+            rd_ptr <= rd_ptr + 1'b1;
+        end
+    end
+      
+   //Writing data_in on mem and updating write pointer      
+
+    always @(posedge wrt_clk or posedge wrt_rst) //no reset because mem is never resetted and data_in doesn't reset
+    begin
+        if(wrt_rst)
+            wrt_ptr <= 0;
+        else if(wrt_en && !full)
+        begin
+            mem[wrt_ptr[2:0]] <= data_in;
+            wrt_ptr <= wrt_ptr + 1'b1;
+        end
+    end                         
+endmodule
