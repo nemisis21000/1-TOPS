@@ -1,0 +1,5 @@
+First put together the rtl code in vivado and simulate it once
+Then inside the '.sim' folder 
+Go in 'sim_1'
+Go in 'behav'
+There along with 'xsim' folder save these hexfiles
