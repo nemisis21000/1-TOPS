@@ -22,6 +22,12 @@ module immgen(           // from the 7 bits of opcode only first two bits [7:6] 
         
         //J  - Type jump and link
         7'b1101111: imm_o = {{12{instr[31]}},instr[19:12],instr[20],instr[30:21],1'b0};
+
+        //U - Type LUI 
+        7'b0110111: imm_o = {instr[31:12],12'b0};
+        
+        //U - Type AUIPC
+        7'b0010111: imm_o = {instr[31:12],12'b0};
         
         default   : imm_o = 32'b00;
         endcase
