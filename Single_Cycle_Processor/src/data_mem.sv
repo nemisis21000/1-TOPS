@@ -52,6 +52,7 @@ begin
      3'b001:     begin  //lh
                  case(word_add[1:0])
                  2'b00: data_o = {{16{mem[word_add[31:2]][15]}},mem[word_add[31:2]][15:0]};
+                 2'b01: data_o = {{16{mem[word_add[31:2]][23]}},mem[word_add[31:2]][23:8]};                     
                  2'b10: data_o = {{16{mem[word_add[31:2]][31]}},mem[word_add[31:2]][31:16]};
                  default: data_o = {32{1'b0}}; // Invalid offset
                  endcase
