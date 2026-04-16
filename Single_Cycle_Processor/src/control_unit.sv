@@ -154,7 +154,7 @@ module control_unit (
     always_comb 
     begin
         case (ALUOp)
-            // S-type (e.g., store) → ADD
+            // Store and Load >> ADD
             2'b00: alu_control = 4'b0000;
 
             // B-type (branch) 
